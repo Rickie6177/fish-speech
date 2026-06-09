@@ -49,9 +49,10 @@ class ModelManager:
             compile=self.compile,
         )
 
-        # Warm up the models
-        if self.mode == "tts":
-            self.warm_up(self.tts_inference_engine)
+        # Warm up disabled: the KV cache init during warm_up spikes VRAM to ~15GB+
+        # on 16GB GPUs (RTX 5080), causing OOM. First real request will initialize caches.
+        # if self.mode == "tts":
+        #     self.warm_up(self.tts_inference_engine)
 
     def load_llama_model(
         self, checkpoint_path, device, precision, compile, mode

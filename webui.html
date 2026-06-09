@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fish Speech TTS Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: rgba(17, 24, 39, 0.8);
+  --bg-input: rgba(30, 41, 59, 0.7);
+  --border: rgba(99, 102, 241, 0.2);
+  --border-hover: rgba(99, 102, 241, 0.5);
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-glow: rgba(99, 102, 241, 0.3);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --radius: 12px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  background-image: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.06) 0%, transparent 50%);
+}
+header {
+  padding: 20px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10, 14, 26, 0.85);
+}
+header h1 { font-size: 1.4rem; font-weight: 700; }
+header h1 span { color: var(--accent); }
+#statusDot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--text-muted); display: inline-block;
+  margin-right: 8px; transition: background 0.3s;
+}
+#statusDot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+#statusDot.offline { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+#statusText { font-size: 0.85rem; color: var(--text-secondary); }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  background: var(--bg-secondary); border-radius: var(--radius);
+  padding: 4px; border: 1px solid var(--border);
+}
+.tab-btn {
+  flex: 1; padding: 10px 20px; border: none; background: transparent;
+  color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; border-radius: 8px; transition: all 0.2s;
+  font-family: inherit;
+}
+.tab-btn.active { background: var(--accent); color: white; }
+.tab-btn:hover:not(.active) { color: var(--text-primary); background: var(--bg-input); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+  backdrop-filter: blur(10px); box-shadow: var(--shadow);
+}
+.card h3 {
+  font-size: 1rem; font-weight: 600; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card h3 .icon { font-size: 1.2rem; }
+label {
+  display: block; font-size: 0.8rem; font-weight: 500;
+  color: var(--text-secondary); margin-bottom: 6px;
+}
+textarea, input[type="text"], input[type="number"], select {
+  width: 100%; padding: 10px 14px; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-primary); font-size: 0.9rem;
+  font-family: inherit; transition: border-color 0.2s;
+  outline: none;
+}
+textarea:focus, input:focus, select:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 120px; }
+select { cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.slider-group { margin-bottom: 14px; }
+.slider-label { display: flex; justify-content: space-between; align-items: center; }
+.slider-value { font-size: 0.8rem; color: var(--accent); font-weight: 600; }
+input[type="range"] {
+  width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+  background: var(--bg-input); border-radius: 2px; outline: none; margin-top: 6px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+.btn {
+  padding: 10px 24px; border: none; border-radius: 8px;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all 0.2s; display: inline-flex;
+  align-items: center; gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  color: white; box-shadow: 0 4px 15px var(--accent-glow);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+.btn-ghost {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.form-row { display: flex; gap: 12px; margin-bottom: 14px; }
+.form-row > * { flex: 1; }
+.mb { margin-bottom: 14px; }
+#audioPlayer {
+  width: 100%; margin-top: 12px; border-radius: 8px;
+}
+.audio-result { text-align: center; padding: 40px 20px; }
+.audio-result.empty { color: var(--text-muted); }
+.ref-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+.ref-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 8px;
+  transition: border-color 0.2s;
+}
+.ref-item:hover { border-color: var(--border-hover); }
+.ref-item .name { font-weight: 500; font-size: 0.9rem; }
+.ref-item .actions { display: flex; gap: 6px; }
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 20px; border-radius: 8px;
+  color: white; font-size: 0.85rem; font-weight: 500;
+  z-index: 999; animation: slideIn 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+@keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.file-upload {
+  border: 2px dashed var(--border); border-radius: 8px;
+  padding: 20px; text-align: center; cursor: pointer;
+  transition: border-color 0.2s; color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.file-upload:hover { border-color: var(--accent); color: var(--text-secondary); }
+.file-upload.has-file { border-color: var(--success); color: var(--success); }
+.file-upload input { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🐟 Fish <span>Speech</span> Studio</h1>
+  <div style="display:flex;align-items:center;gap:6px">
+    <span id="statusDot"></span>
+    <span id="statusText">检查中...</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tts')">🎙️ 语音合成</button>
+    <button class="tab-btn" onclick="switchTab('voices')">🎭 音色管理</button>
+  </div>
+
+  <!-- TTS Tab -->
+  <div id="tab-tts" class="tab-content active">
+    <div class="grid">
+      <div>
+        <div class="card mb">
+          <h3><span class="icon">📝</span> 文本输入</h3>
+          <textarea id="ttsText" placeholder="在这里输入要合成的文本...&#10;支持中文、英文、日文等多种语言。"></textarea>
+        </div>
+
+        <div class="card mb">
+          <h3><span class="icon">🎭</span> 参考音色</h3>
+          <div class="mb">
+            <label>已保存的音色</label>
+            <select id="refSelect">
+              <option value="">-- 随机音色 --</option>
+            </select>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:12px;text-align:center">— 或上传临时参考音频 —</p>
+          <div class="file-upload mb" id="refUpload" onclick="document.getElementById('refFile').click()">
+            📁 点击上传参考音频（5-10秒，wav/mp3）
+            <input type="file" id="refFile" accept="audio/*">
+          </div>
+          <div class="mb">
+            <label>参考音频对应的文本</label>
+            <input type="text" id="refText" placeholder="输入参考音频中说的话...">
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span class="icon">⚙️</span> 生成参数</h3>
+          <div class="form-row">
+            <div class="slider-group">
+              <div class="slider-label"><label>Temperature</label><span class="slider-value" id="tempVal">0.8</span></div>
+              <input type="range" id="temperature" min="0.5" max="1.0" step="0.01" value="0.8" oninput="updateSlider(this,'tempVal')">
+            </div>
+            <div class="slider-group">
+              <div class="slider-label"><label>Top-P</label><span class="slider-value" id="toppVal">0.8</span></div>
+              <input type="range" id="topP" min="0.5" max="0.95" step="0.01" value="0.8" oninput="updateSlider(this,'toppVal')">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="slider-group">
+              <div class="slider-label"><label>重复惩罚</label><span class="slider-value" id="repVal">1.1</span></div>
+              <input type="range" id="repPenalty" min="1.0" max="1.5" step="0.01" value="1.1" oninput="updateSlider(this,'repVal')">
+            </div>
+            <div class="slider-group">
+              <div class="slider-label"><label>分段长度</label><span class="slider-value" id="chunkVal">300</span></div>
+              <input type="range" id="chunkLen" min="100" max="400" step="10" value="300" oninput="updateSlider(this,'chunkVal')">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>最大 Tokens</label>
+              <input type="number" id="maxTokens" value="1024" min="0" max="2048" step="64">
+            </div>
+            <div>
+              <label>输出格式</label>
+              <select id="outFormat">
+                <option value="wav">WAV</option>
+                <option value="mp3">MP3</option>
+                <option value="flac">FLAC</option>
+              </select>
+            </div>
+            <div>
+              <label>Seed (0=随机)</label>
+              <input type="number" id="seed" value="0" min="0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="position:sticky;top:80px">
+          <h3><span class="icon">🔊</span> 生成结果</h3>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:16px;padding:14px" id="genBtn" onclick="generateTTS()">
+            🎧 生成语音
+          </button>
+          <div id="audioResult" class="audio-result empty">
+            点击上方按钮生成语音
+          </div>
+          <div id="audioActions" style="display:none;margin-top:12px;text-align:center">
+            <button class="btn btn-ghost btn-sm" onclick="downloadAudio()">💾 下载音频</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voices Tab -->
+  <div id="tab-voices" class="tab-content">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3><span class="icon">➕</span> 添加新音色</h3>
+          <div class="mb">
+            <label>音色 ID</label>
+            <input type="text" id="newRefId" placeholder="例如: my_voice_01">
+          </div>
+          <div class="file-upload mb" id="newRefUpload" onclick="document.getElementById('newRefFile').click()">
+            📁 点击上传参考音频
+            <input type="file" id="newRefFile" accept="audio/*">
+          </div>
+          <div class="mb">
+            <label>参考文本</label>
+            <input type="text" id="newRefText" placeholder="参考音频中说的话...">
+          </div>
+          <button class="btn btn-primary" onclick="addReference()">➕ 保存音色</button>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3><span class="icon">📋</span> 已保存音色 <button class="btn btn-ghost btn-sm" onclick="loadReferences()" style="margin-left:auto">🔄 刷新</button></h3>
+          <div id="refList" class="ref-list">
+            <div style="color:var(--text-muted);text-align:center;padding:20px">加载中...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Same origin — webui_server.py proxies /v1/* to Docker API
+const API = '';
+let audioBlob = null;
+let audioFormat = 'wav';
+
+// Tab switching
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'voices') loadReferences();
+}
+
+// Slider update
+function updateSlider(el, valId) {
+  document.getElementById(valId).textContent = el.value;
+}
+
+// File upload handling
+document.getElementById('refFile').addEventListener('change', function() {
+  const el = document.getElementById('refUpload');
+  el.textContent = this.files[0] ? `✅ ${this.files[0].name}` : '📁 点击上传参考音频';
+  if (this.files[0]) el.classList.add('has-file'); else el.classList.remove('has-file');
+});
+document.getElementById('newRefFile').addEventListener('change', function() {
+  const el = document.getElementById('newRefUpload');
+  el.textContent = this.files[0] ? `✅ ${this.files[0].name}` : '📁 点击上传参考音频';
+  if (this.files[0]) el.classList.add('has-file'); else el.classList.remove('has-file');
+});
+
+// Toast notification
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// Health check
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/v1/health`, { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    document.getElementById('statusDot').className = d.status === 'ok' ? 'online' : 'offline';
+    document.getElementById('statusText').textContent = d.status === 'ok' ? 'API 在线' : 'API 异常';
+  } catch {
+    document.getElementById('statusDot').className = 'offline';
+    document.getElementById('statusText').textContent = 'API 离线';
+  }
+}
+
+// Load references
+async function loadReferences() {
+  try {
+    const r = await fetch(`${API}/v1/references/list`);
+    const d = await r.json();
+    const list = document.getElementById('refList');
+    const sel = document.getElementById('refSelect');
+    sel.innerHTML = '<option value="">-- 随机音色 --</option>';
+    if (!d.reference_ids || d.reference_ids.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">暂无保存的音色</div>';
+      return;
+    }
+    list.innerHTML = '';
+    d.reference_ids.forEach(id => {
+      sel.innerHTML += `<option value="${id}">${id}</option>`;
+      list.innerHTML += `
+        <div class="ref-item">
+          <span class="name">🎭 ${id}</span>
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="renameRef('${id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteRef('${id}')">🗑️</button>
+          </div>
+        </div>`;
+    });
+  } catch (e) {
+    document.getElementById('refList').innerHTML = '<div style="color:var(--danger);text-align:center;padding:20px">加载失败: ' + e.message + '</div>';
+  }
+}
+
+// Generate TTS
+async function generateTTS() {
+  const text = document.getElementById('ttsText').value.trim();
+  if (!text) { toast('请输入文本', 'error'); return; }
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 生成中...';
+  document.getElementById('audioResult').innerHTML = '<div class="spinner" style="margin:0 auto"></div><p style="margin-top:12px;color:var(--text-muted)">正在生成语音，请稍候...</p>';
+  document.getElementById('audioActions').style.display = 'none';
+
+  try {
+    const refId = document.getElementById('refSelect').value;
+    const refFile = document.getElementById('refFile').files[0];
+    const refText = document.getElementById('refText').value;
+    audioFormat = document.getElementById('outFormat').value;
+
+    let references = [];
+    if (!refId && refFile) {
+      const buf = await refFile.arrayBuffer();
+      references = [{ audio: Array.from(new Uint8Array(buf)), text: refText || '' }];
+    }
+
+    const body = {
+      text: text,
+      references: references,
+      reference_id: refId || null,
+      format: audioFormat,
+      max_new_tokens: parseInt(document.getElementById('maxTokens').value) || 1024,
+      chunk_length: parseInt(document.getElementById('chunkLen').value) || 300,
+      top_p: parseFloat(document.getElementById('topP').value),
+      repetition_penalty: parseFloat(document.getElementById('repPenalty').value),
+      temperature: parseFloat(document.getElementById('temperature').value),
+      seed: parseInt(document.getElementById('seed').value) || null,
+      streaming: false,
+    };
+
+    const r = await fetch(`${API}/v1/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!r.ok) {
+      const errText = await r.text();
+      throw new Error(`HTTP ${r.status}: ${errText}`);
+    }
+
+    audioBlob = await r.blob();
+    if (audioBlob.size < 500) {
+      throw new Error('生成的音频太小，可能推理失败（检查 GPU VRAM）');
+    }
+    const url = URL.createObjectURL(audioBlob);
+    document.getElementById('audioResult').innerHTML = `
+      <p style="color:var(--success);margin-bottom:12px">✅ 生成成功 (${(audioBlob.size/1024).toFixed(1)} KB)</p>
+      <audio id="audioPlayer" controls src="${url}"></audio>`;
+    document.getElementById('audioActions').style.display = 'block';
+    toast('语音生成成功！');
+  } catch (e) {
+    document.getElementById('audioResult').innerHTML = `<p style="color:var(--danger)">❌ ${e.message}</p>`;
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎧 生成语音';
+  }
+}
+
+// Download audio
+function downloadAudio() {
+  if (!audioBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(audioBlob);
+  a.download = `fish_tts_${Date.now()}.${audioFormat}`;
+  a.click();
+}
+
+// Add reference
+async function addReference() {
+  const id = document.getElementById('newRefId').value.trim();
+  const file = document.getElementById('newRefFile').files[0];
+  const text = document.getElementById('newRefText').value.trim();
+  if (!id || !file || !text) { toast('请填写所有字段', 'error'); return; }
+
+  try {
+    const fd = new FormData();
+    fd.append('id', id);
+    fd.append('audio', file);
+    fd.append('text', text);
+    const r = await fetch(`${API}/v1/references/add`, { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.success) {
+      toast(`音色 "${id}" 保存成功`);
+      document.getElementById('newRefId').value = '';
+      document.getElementById('newRefText').value = '';
+      document.getElementById('newRefFile').value = '';
+      document.getElementById('newRefUpload').textContent = '📁 点击上传参考音频';
+      document.getElementById('newRefUpload').classList.remove('has-file');
+      loadReferences();
+    } else {
+      toast(d.message || '保存失败', 'error');
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// Delete reference
+async function deleteRef(id) {
+  if (!confirm(`确定删除音色 "${id}"？`)) return;
+  try {
+    const r = await fetch(`${API}/v1/references/delete`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference_id: id }),
+    });
+    const d = await r.json();
+    toast(d.success ? `已删除 "${id}"` : (d.message || '删除失败'), d.success ? 'success' : 'error');
+    loadReferences();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// Rename reference
+async function renameRef(oldId) {
+  const newId = prompt(`将 "${oldId}" 重命名为:`, oldId);
+  if (!newId || newId === oldId) return;
+  try {
+    const r = await fetch(`${API}/v1/references/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_reference_id: oldId, new_reference_id: newId }),
+    });
+    const d = await r.json();
+    toast(d.success ? `已重命名为 "${newId}"` : (d.message || '重命名失败'), d.success ? 'success' : 'error');
+    loadReferences();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// Init
+checkHealth();
+loadReferences();
+setInterval(checkHealth, 15000);
+</script>
+</body>
+</html>

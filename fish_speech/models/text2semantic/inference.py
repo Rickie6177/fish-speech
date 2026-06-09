@@ -281,9 +281,12 @@ def generate(
     # Critical fix: Only set up cache on first run or when necessary
     if not hasattr(model, "_cache_setup_done") or not model._cache_setup_done:
         with torch.device(device):
+            # Limit KV cache seq len to 2048 to fit within 16GB VRAM.
+            # After model loading ~15.9GB used, only ~350MB free for KV+compute.
+            kv_cache_seq_len = min(2048, model.config.max_seq_len)
             model.setup_caches(
                 max_batch_size=1,  # Fixed to 1, avoid dynamic changes
-                max_seq_len=model.config.max_seq_len,
+                max_seq_len=kv_cache_seq_len,
                 dtype=next(model.parameters()).dtype,
             )
         model._cache_setup_done = True
@@ -758,12 +761,14 @@ def launch_thread_safe_queue(
         model, decode_one_token = init_model(
             checkpoint_path, device, precision, compile=compile
         )
-        with torch.device(device):
-            model.setup_caches(
-                max_batch_size=1,
-                max_seq_len=model.config.max_seq_len,
-                dtype=next(model.parameters()).dtype,
-            )
+        # KV cache is set up lazily on first generate() call (see generate() function).
+        # Pre-allocating here for max_seq_len=32768 fills the entire VRAM on 16GB GPUs.
+        # with torch.device(device):
+        #     model.setup_caches(
+        #         max_batch_size=1,
+        #         max_seq_len=model.config.max_seq_len,
+        #         dtype=next(model.parameters()).dtype,
+        #     )
         init_event.set()
 
         while True:

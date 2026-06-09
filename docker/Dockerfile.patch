@@ -1,0 +1,8 @@
+FROM fish-speech-base:cuda
+
+# Copy only the modified source files
+COPY fish_speech/inference_engine/vq_manager.py /app/fish_speech/inference_engine/vq_manager.py
+COPY tools/server/model_manager.py /app/tools/server/model_manager.py
+COPY fish_speech/models/text2semantic/inference.py /app/fish_speech/models/text2semantic/inference.py
+COPY tools/api_server.py /app/tools/api_server.py
+

@@ -1,0 +1,122 @@
+# Simplified Dockerfile — pure pip3 based, no uv sync/run, works in China network environments
+# Requires: NVIDIA CUDA base image, TUNA/mirrors for APT and PyPI
+
+ARG CUDA_VER=12.6.0
+ARG UBUNTU_VER=24.04
+
+# ─── Base with system dependencies ──────────────────────────────────────────
+FROM nvidia/cuda:${CUDA_VER}-cudnn-runtime-ubuntu${UBUNTU_VER} AS base-cuda
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Add full Ubuntu repos from USTC mirror (CUDA base image has minimal sources)
+RUN echo "deb https://mirrors.ustc.edu.cn/ubuntu noble main restricted universe multiverse" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.ustc.edu.cn/ubuntu noble-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.ustc.edu.cn/ubuntu noble-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        python3-dev \
+        git \
+        ca-certificates \
+        curl \
+        libsox-dev \
+        build-essential \
+        cmake \
+        libasound-dev \
+        portaudio19-dev \
+        libportaudio2 \
+        libportaudiocpp0 \
+        ffmpeg && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Configure pip to use TUNA mirror and allow system-wide install (Ubuntu 24.04)
+RUN echo '[global]' > /etc/pip.conf && \
+    echo 'index-url = https://pypi.tuna.tsinghua.edu.cn/simple' >> /etc/pip.conf && \
+    echo 'trusted-host = pypi.tuna.tsinghua.edu.cn' >> /etc/pip.conf && \
+    echo 'extra-index-url = https://pypi.org/simple' >> /etc/pip.conf && \
+    echo 'break-system-packages = true' >> /etc/pip.conf
+
+# ─── Install PyTorch cu128 nightly (supports RTX 5080 / sm_120) ─────────────
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "torch==2.12.0.dev20260317+cu128" \
+    "torchaudio==2.11.0.dev20260317+cu128" \
+    --index-url https://download.pytorch.org/whl/nightly/cu128
+
+# ─── Install ALL fish-speech dependencies from pyproject.toml ────────────────
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "transformers<=4.57.3" \
+    "datasets==2.18.0" \
+    "lightning>=2.1.0" \
+    "hydra-core>=1.3.2" \
+    "tensorboard>=2.14.1" \
+    "natsort>=8.4.0" \
+    "einops>=0.7.0" \
+    "librosa>=0.10.1" \
+    "rich>=13.5.3" \
+    "gradio>5.0.0" \
+    "wandb>=0.15.11" \
+    "grpcio>=1.58.0" \
+    "kui>=1.6.0" \
+    "uvicorn>=0.30.0" \
+    "loguru>=0.6.0" \
+    "loralib>=0.1.2" \
+    "pyrootutils>=1.0.4" \
+    "resampy>=0.4.3" \
+    "einx[torch]==0.2.2" \
+    "zstandard>=0.22.0" \
+    "pydub" \
+    "pyaudio" \
+    "modelscope==1.17.1" \
+    "opencc-python-reimplemented==0.1.7" \
+    "silero-vad" \
+    "ormsgpack" \
+    "tiktoken>=0.8.0" \
+    "pydantic==2.9.2" \
+    "cachetools" \
+    "descript-audio-codec" \
+    "descript-audiotools" \
+    "safetensors" \
+    "numpy" \
+    "scipy" \
+    "aiohttp" \
+    "soundfile" \
+    "fastapi" \
+    "sentencepiece" \
+    "accelerate" \
+    "huggingface_hub"
+
+WORKDIR /app
+
+# Install audiotools from git since PyPI package name doesn't match import name
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "git+https://github.com/descriptinc/audiotools.git@master"
+
+# Copy the entire project
+COPY . .
+
+# Install the local fish-speech package (no build isolation needed as deps are already installed)
+RUN pip3 install --no-deps --break-system-packages -e .
+
+# ─── Server stage ─────────────────────────────────────────────────────────────
+FROM base-cuda AS server
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+EXPOSE 8080
+
+ENTRYPOINT ["python3", "tools/api_server.py", \
+    "--listen", "0.0.0.0:8080", \
+    "--llama-checkpoint-path", "checkpoints/s2-pro", \
+    "--decoder-checkpoint-path", "checkpoints/s2-pro/codec.pth", \
+    "--half"]
+
+# ─── WebUI stage ──────────────────────────────────────────────────────────────
+FROM base-cuda AS webui
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+EXPOSE 7860
+
+ENTRYPOINT ["python3", "tools/run_webui.py", \
+    "--llama-checkpoint-path", "checkpoints/s2-pro", \
+    "--decoder-checkpoint-path", "checkpoints/s2-pro/codec.pth", \
+    "--half"]

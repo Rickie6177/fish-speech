@@ -116,6 +116,8 @@ if __name__ == "__main__":
         api.app,
         host=host,
         port=int(port),
-        workers=api.args.workers,
+        # workers=None runs uvicorn in single-process async mode (no forking).
+        # workers=N (N>=1) uses preforking which causes the model to reload per request.
+        workers=None,
         log_level="info",
     )
