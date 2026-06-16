@@ -4,7 +4,7 @@ echo   Fish Speech TTS API Launcher
 echo ================================================================
 echo.
 
-:: Check if container is ALREADY running — skip restart if so
+:: Check if container is ALREADY running -- skip restart if so
 for /f "delims=" %%i in ('wsl -d Ubuntu -u root -- bash -c "docker ps --filter name=fish-speech-api --filter status=running --format {{.Names}} 2>/dev/null"') do set RUNNING=%%i
 if "%RUNNING%"=="fish-speech-api" (
     echo [OK] Container is already running! No restart needed.
@@ -12,6 +12,14 @@ if "%RUNNING%"=="fish-speech-api" (
     echo       wsl -d Ubuntu -u root -- docker stop fish-speech-api^)
     echo.
     goto :show_logs
+)
+
+:: Container exists but is stopped/exited -- remove it so docker run below can recreate it
+for /f "delims=" %%i in ('wsl -d Ubuntu -u root -- bash -c "docker ps -a --filter name=fish-speech-api --format {{.Names}} 2>/dev/null"') do set EXISTED=%%i
+if "%EXISTED%"=="fish-speech-api" (
+    echo [!] Found a stopped container -- removing it before restart...
+    wsl -d Ubuntu -u root -- bash -c "docker rm -f fish-speech-api 2>/dev/null"
+    echo.
 )
 
 echo [!] IMPORTANT: Close these apps to free GPU VRAM before starting:
@@ -46,6 +54,6 @@ echo ================================================================
 
 :show_logs
 echo.
-echo [Following live logs below — press Ctrl+C to close this window]
+echo [Following live logs -- press Ctrl+C to close this window]
 echo ================================================================
 wsl -d Ubuntu -u root -- bash -c "docker logs -f fish-speech-api 2>&1"
